@@ -1,0 +1,2181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PumpTill Pro — Fuel Reading Ledger</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,300&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --ink: #0e1117;
+      --ink-2: #2b303b;
+      --ink-3: #5c6270;
+      --rule: rgba(14,17,23,0.09);
+      --surface: #f7f8fa;
+      --card: #ffffff;
+      --card-alt: #f0f2f6;
+      --teal: #077a6e;
+      --teal-lt: #e2f4f2;
+      --amber: #c47b1e;
+      --amber-lt: #fef3e2;
+      --red: #b53030;
+      --red-lt: #fdeaea;
+      --blue: #2457b3;
+      --blue-lt: #e8effe;
+      --mono: "IBM Plex Mono", monospace;
+      --sans: "DM Sans", sans-serif;
+      --display: "Space Grotesk", sans-serif;
+      --r-sm: 8px;
+      --r-md: 14px;
+      --r-lg: 22px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; font-size: 16px; }
+    body {
+      font-family: var(--sans);
+      background: var(--surface);
+      color: var(--ink);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* ── LAYOUT ── */
+    .container { width: min(100% - 2rem, 1280px); margin-inline: auto; }
+    .page-wrap { display: grid; grid-template-rows: auto 1fr; min-height: 100vh; }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      background: var(--ink);
+      color: #fff;
+      border-bottom: 3px solid var(--teal);
+    }
+    .topbar-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      min-height: 64px; gap: 1rem;
+    }
+    .brand {
+      display: flex; align-items: center; gap: .85rem;
+    }
+    .brand-icon {
+      width: 38px; height: 38px;
+      background: linear-gradient(135deg, var(--teal), #0aad9e);
+      border-radius: var(--r-sm);
+      display: grid; place-items: center;
+      flex-shrink: 0;
+    }
+    .brand-icon svg { width: 22px; height: 22px; fill: #fff; }
+    .brand-name {
+      font-family: var(--display);
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: -.01em;
+      line-height: 1;
+    }
+    .brand-sub {
+      font-size: .75rem;
+      color: rgba(255,255,255,.5);
+      margin-top: .2rem;
+      font-family: var(--mono);
+    }
+    .topbar-right {
+      display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
+    }
+    .session-badge {
+      font-family: var(--mono);
+      font-size: .78rem;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 999px;
+      padding: .4rem .85rem;
+      display: flex; align-items: center; gap: .5rem;
+    }
+    .session-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #4ade80;
+      box-shadow: 0 0 0 3px rgba(74,222,128,.25);
+    }
+    .btn-sm {
+      font-family: var(--sans);
+      font-size: .82rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 999px;
+      padding: .55rem 1.1rem;
+      cursor: pointer;
+      transition: opacity .18s, transform .18s;
+    }
+    .btn-sm:hover { opacity: .88; transform: translateY(-1px); }
+    .btn-outline-white {
+      background: transparent;
+      color: #fff;
+      border: 1px solid rgba(255,255,255,.28);
+    }
+    .btn-teal {
+      background: var(--teal);
+      color: #fff;
+    }
+    .btn-red {
+      background: var(--red);
+      color: #fff;
+    }
+
+    /* ── AUTH SCREEN ── */
+    #authScreen {
+      position: fixed; inset: 0; z-index: 200;
+      background: linear-gradient(160deg, #0e1117 55%, #0c2f2b);
+      display: flex; align-items: center; justify-content: center;
+      padding: 1rem;
+    }
+    .auth-card {
+      background: #fff;
+      border-radius: var(--r-lg);
+      padding: 2.5rem;
+      width: min(100%, 440px);
+      box-shadow: 0 40px 100px rgba(0,0,0,.35);
+    }
+    .auth-logo {
+      display: flex; align-items: center; gap: .75rem;
+      margin-bottom: 2rem;
+    }
+    .auth-logo-icon {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, var(--teal), #0aad9e);
+      border-radius: 12px;
+      display: grid; place-items: center;
+    }
+    .auth-logo-icon svg { width: 26px; height: 26px; fill: #fff; }
+    .auth-title {
+      font-family: var(--display);
+      font-size: 1.55rem;
+      font-weight: 700;
+      letter-spacing: -.03em;
+      margin-bottom: .35rem;
+    }
+    .auth-sub { color: var(--ink-3); font-size: .9rem; }
+    .role-selector {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: .6rem; margin-bottom: 1.5rem;
+    }
+    .role-opt {
+      border: 2px solid var(--rule);
+      border-radius: var(--r-md);
+      padding: 1rem .85rem;
+      cursor: pointer;
+      transition: border-color .18s, background .18s;
+      text-align: center;
+    }
+    .role-opt.selected {
+      border-color: var(--teal);
+      background: var(--teal-lt);
+    }
+    .role-opt .role-icon { font-size: 1.6rem; display: block; margin-bottom: .35rem; }
+    .role-opt .role-label { font-weight: 700; font-size: .9rem; }
+    .role-opt .role-desc { color: var(--ink-3); font-size: .78rem; margin-top: .2rem; }
+    .field-group { margin-bottom: 1rem; }
+    .field-group label {
+      display: block; font-weight: 700; font-size: .85rem;
+      margin-bottom: .45rem; letter-spacing: .01em;
+    }
+    .field-group input, .field-group select {
+      width: 100%;
+      border: 1.5px solid var(--rule);
+      background: var(--surface);
+      border-radius: var(--r-sm);
+      padding: .8rem 1rem;
+      font-family: var(--sans); font-size: .95rem;
+      color: var(--ink);
+      outline: none;
+      transition: border-color .18s, box-shadow .18s;
+    }
+    .field-group input:focus, .field-group select:focus {
+      border-color: var(--teal);
+      box-shadow: 0 0 0 3px rgba(7,122,110,.12);
+    }
+    .auth-error {
+      background: var(--red-lt);
+      border: 1px solid rgba(181,48,48,.18);
+      border-radius: var(--r-sm);
+      padding: .7rem 1rem;
+      color: var(--red);
+      font-size: .87rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      display: none;
+    }
+    .auth-btn {
+      width: 100%;
+      background: linear-gradient(135deg, var(--teal), #0aad9e);
+      color: #fff;
+      border: none;
+      border-radius: var(--r-sm);
+      padding: 1rem;
+      font-family: var(--sans);
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity .18s, transform .18s;
+      letter-spacing: .01em;
+    }
+    .auth-btn:hover { opacity: .9; transform: translateY(-1px); }
+    .auth-security-note {
+      display: flex; align-items: center; gap: .5rem;
+      margin-top: 1.2rem;
+      color: var(--ink-3); font-size: .78rem;
+    }
+    .auth-security-note svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .divider {
+      height: 1px;
+      background: var(--rule);
+      margin: 1.4rem 0;
+    }
+    .lockout-msg {
+      color: var(--red);
+      font-size: .82rem;
+      font-weight: 600;
+      text-align: center;
+      margin-top: .75rem;
+      display: none;
+    }
+
+    /* ── MAIN CONTENT ── */
+    #appScreen { display: none; }
+    .main-content { padding: 2rem 0 4rem; }
+
+    /* TABS */
+    .tab-bar {
+      display: flex; gap: .35rem; flex-wrap: wrap;
+      border-bottom: 1px solid var(--rule);
+      margin-bottom: 2rem;
+    }
+    .tab-btn {
+      font-family: var(--sans);
+      font-size: .88rem;
+      font-weight: 700;
+      border: none;
+      background: none;
+      color: var(--ink-3);
+      padding: .8rem 1.1rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color .18s, border-color .18s;
+      border-radius: var(--r-sm) var(--r-sm) 0 0;
+    }
+    .tab-btn:hover { color: var(--ink); }
+    .tab-btn.active {
+      color: var(--teal);
+      border-bottom-color: var(--teal);
+    }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* CARDS / PANELS */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--rule);
+      border-radius: var(--r-lg);
+      padding: clamp(1.2rem, 2.5vw, 2rem);
+    }
+    .card-title {
+      font-family: var(--display);
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: -.03em;
+      margin-bottom: .3rem;
+    }
+    .card-sub { color: var(--ink-3); font-size: .88rem; margin-bottom: 1.5rem; }
+
+    /* FORM GRID */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .form-grid .span-2 { grid-column: 1 / -1; }
+    .f-label {
+      display: block;
+      font-weight: 700;
+      font-size: .82rem;
+      letter-spacing: .02em;
+      text-transform: uppercase;
+      color: var(--ink-2);
+      margin-bottom: .4rem;
+    }
+    .f-input {
+      width: 100%;
+      border: 1.5px solid var(--rule);
+      background: var(--surface);
+      border-radius: var(--r-sm);
+      padding: .8rem 1rem;
+      font-family: var(--mono);
+      font-size: .95rem;
+      color: var(--ink);
+      outline: none;
+      transition: border-color .18s, box-shadow .18s;
+    }
+    .f-input:focus {
+      border-color: var(--teal);
+      box-shadow: 0 0 0 3px rgba(7,122,110,.10);
+      background: #fff;
+    }
+    textarea.f-input { resize: vertical; font-family: var(--sans); }
+    .section-lbl {
+      font-family: var(--mono);
+      font-size: .72rem;
+      text-transform: uppercase;
+      letter-spacing: .14em;
+      color: var(--teal);
+      font-weight: 600;
+      margin-bottom: .6rem;
+      padding: .35rem .7rem;
+      background: var(--teal-lt);
+      display: inline-block;
+      border-radius: 999px;
+    }
+    .divider-sm { height: 1px; background: var(--rule); margin: 1.2rem 0; }
+
+    /* RESULT STRIP */
+    .result-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: .75rem;
+      margin: 1.5rem 0;
+    }
+    .result-box {
+      padding: 1.1rem 1.2rem;
+      border-radius: var(--r-md);
+      border: 1.5px solid var(--rule);
+      background: var(--card-alt);
+    }
+    .result-box.highlight {
+      border-color: var(--teal);
+      background: var(--teal-lt);
+    }
+    .result-box.warn {
+      border-color: var(--amber);
+      background: var(--amber-lt);
+    }
+    .result-box.danger {
+      border-color: var(--red);
+      background: var(--red-lt);
+    }
+    .result-lbl {
+      font-size: .73rem;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      font-family: var(--mono);
+      color: var(--ink-3);
+      font-weight: 600;
+      margin-bottom: .45rem;
+    }
+    .result-val {
+      font-family: var(--mono);
+      font-size: 1.55rem;
+      font-weight: 700;
+      letter-spacing: -.02em;
+      line-height: 1;
+      color: var(--ink);
+    }
+    .result-val.teal { color: var(--teal); }
+    .result-val.red { color: var(--red); }
+    .result-sub {
+      font-size: .78rem;
+      color: var(--ink-3);
+      margin-top: .35rem;
+    }
+
+    /* ACTION ROW */
+    .action-row {
+      display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1.4rem;
+    }
+    .btn-main {
+      font-family: var(--sans); font-size: .9rem; font-weight: 700;
+      border: none; border-radius: var(--r-sm);
+      padding: .85rem 1.4rem;
+      cursor: pointer;
+      transition: opacity .18s, transform .18s;
+      letter-spacing: .01em;
+    }
+    .btn-main:hover { opacity: .88; transform: translateY(-1px); }
+    .btn-primary { background: var(--teal); color: #fff; }
+    .btn-secondary { background: var(--amber); color: #fff; }
+    .btn-ghost {
+      background: var(--surface);
+      color: var(--ink);
+      border: 1.5px solid var(--rule);
+    }
+    .btn-danger { background: var(--red); color: #fff; }
+
+    /* ── LEDGER TABLE ── */
+    .ledger-wrap {
+      overflow: auto;
+      border-radius: var(--r-md);
+      border: 1px solid var(--rule);
+      margin-top: 1.2rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 900px;
+      font-size: .86rem;
+    }
+    thead th {
+      text-align: left;
+      padding: .85rem 1rem;
+      background: var(--ink);
+      color: #fff;
+      font-family: var(--mono);
+      font-size: .72rem;
+      text-transform: uppercase;
+      letter-spacing: .09em;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    thead th:first-child { border-radius: var(--r-sm) 0 0 0; }
+    thead th:last-child { border-radius: 0 var(--r-sm) 0 0; }
+    tbody td {
+      padding: .8rem 1rem;
+      border-bottom: 1px solid var(--rule);
+      vertical-align: middle;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: var(--card-alt); }
+    .tag {
+      display: inline-flex; align-items: center; gap: .35rem;
+      padding: .3rem .65rem;
+      border-radius: 999px;
+      font-size: .75rem;
+      font-weight: 700;
+      font-family: var(--mono);
+      white-space: nowrap;
+    }
+    .tag.admin { background: var(--teal-lt); color: var(--teal); }
+    .tag.client { background: var(--amber-lt); color: var(--amber); }
+    .mono-val { font-family: var(--mono); font-size: .88rem; }
+    .tbl-btn {
+      border: none; border-radius: var(--r-sm);
+      padding: .38rem .75rem;
+      font-family: var(--sans); font-size: .78rem; font-weight: 700;
+      cursor: pointer;
+      margin-right: .25rem;
+      transition: opacity .15s;
+    }
+    .tbl-btn:hover { opacity: .75; }
+    .tbl-edit { background: var(--blue-lt); color: var(--blue); }
+    .tbl-del { background: var(--red-lt); color: var(--red); }
+    .empty-row td {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--ink-3);
+      font-size: .9rem;
+    }
+
+    /* ── ADMIN PANEL ── */
+    .admin-panel-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: .85rem;
+      margin-bottom: 1.25rem;
+    }
+    .stat-tile {
+      background: var(--card);
+      border: 1px solid var(--rule);
+      border-radius: var(--r-md);
+      padding: 1.2rem 1.1rem;
+    }
+    .stat-tile-lbl {
+      font-family: var(--mono);
+      font-size: .7rem;
+      text-transform: uppercase;
+      letter-spacing: .11em;
+      color: var(--ink-3);
+      margin-bottom: .5rem;
+    }
+    .stat-tile-val {
+      font-family: var(--mono);
+      font-size: 1.7rem;
+      font-weight: 700;
+      letter-spacing: -.03em;
+      line-height: 1;
+    }
+    .stat-tile-val.teal { color: var(--teal); }
+    .stat-tile-val.amber { color: var(--amber); }
+    .stat-tile-val.blue { color: var(--blue); }
+    .stat-tile-sub { color: var(--ink-3); font-size: .78rem; margin-top: .35rem; }
+    .chart-card { background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-lg); padding: 1.5rem; }
+    .chart-card-title {
+      font-family: var(--display);
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      color: var(--ink-2);
+    }
+    .chart-wrap { position: relative; height: 260px; }
+    .user-table-wrap { overflow: auto; margin-top: 1rem; }
+    .security-log {
+      background: var(--card);
+      border: 1px solid var(--rule);
+      border-radius: var(--r-lg);
+      overflow: hidden;
+    }
+    .security-log-header {
+      padding: 1rem 1.5rem;
+      background: var(--ink-2);
+      color: #fff;
+      font-family: var(--mono);
+      font-size: .8rem;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .security-log-body {
+      max-height: 220px;
+      overflow-y: auto;
+      padding: .5rem 0;
+    }
+    .log-entry {
+      display: flex; align-items: flex-start; gap: .75rem;
+      padding: .55rem 1.5rem;
+      border-bottom: 1px solid var(--rule);
+      font-size: .82rem;
+    }
+    .log-entry:last-child { border-bottom: none; }
+    .log-time {
+      font-family: var(--mono);
+      font-size: .72rem;
+      color: var(--ink-3);
+      white-space: nowrap;
+      flex-shrink: 0;
+      padding-top: .1rem;
+    }
+    .log-msg { flex: 1; }
+    .log-badge {
+      font-size: .7rem;
+      font-family: var(--mono);
+      font-weight: 700;
+      padding: .2rem .5rem;
+      border-radius: 999px;
+      flex-shrink: 0;
+    }
+    .log-badge.ok { background: #dcfce7; color: #16a34a; }
+    .log-badge.warn { background: var(--amber-lt); color: var(--amber); }
+    .log-badge.fail { background: var(--red-lt); color: var(--red); }
+
+    /* SESSION TIMER */
+    .session-timer-bar {
+      background: var(--ink-2);
+      color: rgba(255,255,255,.7);
+      font-family: var(--mono);
+      font-size: .75rem;
+      text-align: center;
+      padding: .35rem;
+      letter-spacing: .06em;
+    }
+    #sessionCountdown { color: #4ade80; font-weight: 600; }
+    .session-timer-bar.expiring { background: #7f1d1d; }
+
+    /* TOAST */
+    #toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      z-index: 300;
+      background: var(--ink);
+      color: #fff;
+      padding: .9rem 1.4rem;
+      border-radius: var(--r-md);
+      font-size: .9rem;
+      font-weight: 600;
+      box-shadow: 0 20px 50px rgba(0,0,0,.25);
+      transform: translateY(20px);
+      opacity: 0;
+      transition: opacity .28s, transform .28s;
+      pointer-events: none;
+      max-width: 320px;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.ok { border-left: 4px solid #4ade80; }
+    #toast.err { border-left: 4px solid var(--red); }
+    #toast.info { border-left: 4px solid var(--teal); }
+
+    /* UTILITIES */
+    .flex-between { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+    .mt-1 { margin-top: .6rem; }
+    .mt-2 { margin-top: 1.2rem; }
+    .hidden { display: none !important; }
+    .text-muted { color: var(--ink-3); font-size: .87rem; }
+    .formula-note {
+      background: var(--card-alt);
+      border-left: 3px solid var(--teal);
+      border-radius: 0 var(--r-sm) var(--r-sm) 0;
+      padding: .75rem 1rem;
+      font-size: .82rem;
+      color: var(--ink-2);
+      margin-top: 1rem;
+      font-family: var(--mono);
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 900px) {
+      .admin-panel-grid, .stat-row { grid-template-columns: 1fr 1fr; }
+      .form-grid { grid-template-columns: 1fr; }
+      .form-grid .span-2 { grid-column: 1; }
+    }
+    @media (max-width: 640px) {
+      .stat-row, .admin-panel-grid { grid-template-columns: 1fr; }
+      .topbar-inner { flex-direction: column; align-items: flex-start; padding: .75rem 0; }
+    }
+    /* ── PERFORMANCE TAB ── */
+    .perf-view-btn {
+      border: 1.5px solid var(--rule);
+      background: var(--surface);
+      border-radius: var(--r-sm);
+      padding: .35rem .75rem;
+      font-family: var(--mono);
+      font-size: .75rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--ink-3);
+      transition: all .18s;
+    }
+    .perf-view-btn.active {
+      background: var(--ink);
+      color: #fff;
+      border-color: var(--ink);
+    }
+    .kpi-tile {
+      background: var(--card);
+      border: 1px solid var(--rule);
+      border-radius: var(--r-md);
+      padding: 1.1rem 1.2rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .kpi-tile::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+    }
+    .kpi-tile.teal::before { background: var(--teal); }
+    .kpi-tile.amber::before { background: var(--amber); }
+    .kpi-tile.blue::before { background: var(--blue); }
+    .kpi-tile.red::before { background: var(--red); }
+    .kpi-lbl {
+      font-family: var(--mono);
+      font-size: .68rem;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      color: var(--ink-3);
+      margin-bottom: .45rem;
+    }
+    .kpi-val {
+      font-family: var(--mono);
+      font-size: 1.55rem;
+      font-weight: 700;
+      letter-spacing: -.03em;
+      line-height: 1;
+      color: var(--ink);
+    }
+    .kpi-sub {
+      font-size: .78rem;
+      color: var(--ink-3);
+      margin-top: .35rem;
+    }
+    .kpi-delta {
+      display: inline-flex;
+      align-items: center;
+      gap: .25rem;
+      font-family: var(--mono);
+      font-size: .75rem;
+      font-weight: 700;
+      padding: .2rem .5rem;
+      border-radius: 999px;
+      margin-top: .4rem;
+    }
+    .kpi-delta.up { background: #dcfce7; color: #16a34a; }
+    .kpi-delta.down { background: var(--red-lt); color: var(--red); }
+    .kpi-delta.flat { background: var(--card-alt); color: var(--ink-3); }
+    /* Leaderboard rank badges */
+    .rank-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      font-family: var(--mono);
+      font-size: .78rem;
+      font-weight: 700;
+    }
+    .rank-1 { background: #fef9c3; color: #854d0e; border: 1.5px solid #fde047; }
+    .rank-2 { background: #f1f5f9; color: #475569; border: 1.5px solid #cbd5e1; }
+    .rank-3 { background: #fef3e2; color: #9a3412; border: 1.5px solid #fed7aa; }
+    .rank-n { background: var(--card-alt); color: var(--ink-3); border: 1.5px solid var(--rule); }
+    .trend-spark {
+      font-family: var(--mono);
+      font-size: .78rem;
+      letter-spacing: .05em;
+    }
+    /* Heat table */
+    .heat-table { border-collapse: collapse; width: 100%; min-width: 600px; font-size: .82rem; }
+    .heat-table th {
+      text-align: center;
+      padding: .55rem .7rem;
+      background: var(--ink);
+      color: #fff;
+      font-family: var(--mono);
+      font-size: .68rem;
+      text-transform: uppercase;
+      letter-spacing: .09em;
+      font-weight: 600;
+    }
+    .heat-table th:first-child { text-align: left; }
+    .heat-table td {
+      text-align: center;
+      padding: .55rem .7rem;
+      border-bottom: 1px solid var(--rule);
+      font-family: var(--mono);
+      font-size: .8rem;
+    }
+    .heat-table td:first-child { text-align: left; font-weight: 700; white-space: nowrap; }
+    .heat-table tr:last-child td { border-bottom: none; }
+    .heat-cell {
+      border-radius: 5px;
+      padding: .3rem .55rem;
+      display: inline-block;
+      min-width: 60px;
+    }
+    .donut-legend-item {
+      display: flex;
+      align-items: center;
+      gap: .55rem;
+      font-size: .8rem;
+    }
+    .donut-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    @media (max-width: 900px) {
+      #perfKpiRow { grid-template-columns: 1fr 1fr !important; }
+    }
+    @media (max-width: 640px) {
+      #perfKpiRow { grid-template-columns: 1fr !important; }
+    }
+      .topbar, .tab-bar, .action-row, .session-timer-bar { display: none !important; }
+      .card { box-shadow: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- AUTH SCREEN -->
+<div id="authScreen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 0 1 5 5v2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v2h6V7a3 3 0 0 0-3-3zm0 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
+      </div>
+      <div>
+        <div class="auth-title">PumpTill Pro</div>
+        <div class="auth-sub">Secure sign-in required</div>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label>Select Your Role</label>
+      <div class="role-selector">
+        <div class="role-opt selected" data-role="administrator" onclick="selectRole(this)">
+          <span class="role-icon">🛡️</span>
+          <div class="role-label">Administrator</div>
+          <div class="role-desc">Full ledger access & analytics</div>
+        </div>
+        <div class="role-opt" data-role="client" onclick="selectRole(this)">
+          <span class="role-icon">⛽</span>
+          <div class="role-label">Client</div>
+          <div class="role-desc">Submit & view own records</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label for="authUsername">Username</label>
+      <input id="authUsername" type="text" placeholder="Enter your username" autocomplete="username" />
+    </div>
+    <div class="field-group">
+      <label for="authPassword">Password</label>
+      <input id="authPassword" type="password" placeholder="Enter your password" autocomplete="current-password" />
+    </div>
+
+    <div class="auth-error" id="authError"></div>
+    <div class="lockout-msg" id="lockoutMsg"></div>
+
+    <button class="auth-btn" onclick="handleLogin()">Sign In Securely</button>
+
+    <div class="auth-security-note">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Sessions expire after 20 minutes of inactivity. All actions are logged.
+    </div>
+
+    <div class="divider"></div>
+    <div class="text-muted" style="font-size:.78rem; text-align:center;">
+      <strong>Demo credentials:</strong><br>
+      Admin — <code>admin / Admin@2024</code><br>
+      Client — <code>client1 / Client@2024</code> &nbsp;|&nbsp; <code>client2 / Client@2024</code>
+    </div>
+  </div>
+</div>
+
+<!-- APP SCREEN -->
+<div id="appScreen" class="page-wrap">
+  <div class="session-timer-bar" id="sessionTimerBar">
+    Session active — auto-logout in <span id="sessionCountdown">20:00</span> &nbsp;|&nbsp;
+    <span id="sessionUser" style="color:#fff;font-weight:600;"></span>
+  </div>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 0 1 5 5v2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v2h6V7a3 3 0 0 0-3-3zm0 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
+        </div>
+        <div>
+          <div class="brand-name">PumpTill Pro</div>
+          <div class="brand-sub">Fuel Reading Ledger</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="session-badge">
+          <span class="session-dot"></span>
+          <span id="navRoleBadge">Administrator</span>
+        </div>
+        <button class="btn-sm btn-outline-white" onclick="exportData()">⬇ Export JSON</button>
+        <button class="btn-sm btn-red" onclick="handleLogout()">Sign Out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="container">
+      <div class="tab-bar" id="tabBar">
+        <button class="tab-btn active" data-tab="calculator">📝 Calculator</button>
+        <button class="tab-btn" data-tab="ledger">📋 Records</button>
+        <button class="tab-btn admin-only" data-tab="admin">🛡️ Admin Panel</button>
+        <button class="tab-btn admin-only" data-tab="performance">📊 Performance</button>
+      </div>
+
+      <!-- ── CALCULATOR TAB ── -->
+      <div class="tab-pane active" id="tab-calculator">
+        <div style="display:grid; grid-template-columns: 1.3fr .7fr; gap: 1.25rem; align-items: start;">
+          <div class="card">
+            <div class="flex-between" style="margin-bottom:.3rem;">
+              <div>
+                <div class="card-title">Reading Calculator</div>
+                <div class="card-sub">Enter the current readings as closing values. Movement figures derive the opening readings.</div>
+              </div>
+            </div>
+
+            <div class="section-lbl">Identification</div>
+            <div class="form-grid" style="margin-bottom:1.2rem;">
+              <div>
+                <label class="f-label">Station / Pump Name</label>
+                <input class="f-input" id="stationName" type="text" placeholder="e.g. Pump 3 — Station A" />
+              </div>
+              <div>
+                <label class="f-label">Reading Date &amp; Time</label>
+                <input class="f-input" id="readingDate" type="datetime-local" />
+              </div>
+              <div>
+                <label class="f-label">Attendant Name</label>
+                <input class="f-input" id="attendantName" type="text" placeholder="e.g. James Okonkwo" />
+              </div>
+              <div>
+                <label class="f-label">Shift</label>
+                <select class="f-input" id="shift">
+                  <option value="Morning">Morning</option>
+                  <option value="Afternoon">Afternoon</option>
+                  <option value="Evening">Evening</option>
+                  <option value="Night">Night</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="section-lbl">Closing Readings (Current)</div>
+            <div class="form-grid" style="margin-bottom:1.2rem;">
+              <div>
+                <label class="f-label">Closing Sale Reading (₦)</label>
+                <input class="f-input" id="closingSale" type="number" min="0" step="0.01" placeholder="0.00" oninput="liveCalc()" />
+              </div>
+              <div>
+                <label class="f-label">Sale Movement for Period (₦)</label>
+                <input class="f-input" id="saleMovement" type="number" min="0" step="0.01" placeholder="0.00" oninput="liveCalc()" />
+              </div>
+              <div>
+                <label class="f-label">Closing Litres Reading (L)</label>
+                <input class="f-input" id="closingLitres" type="number" min="0" step="0.01" placeholder="0.00" oninput="liveCalc()" />
+              </div>
+              <div>
+                <label class="f-label">Litres Movement for Period (L)</label>
+                <input class="f-input" id="litresMovement" type="number" min="0" step="0.01" placeholder="0.00" oninput="liveCalc()" />
+              </div>
+            </div>
+
+            <div class="section-lbl">Notes</div>
+            <textarea class="f-input span-2" id="recordNotes" rows="3" placeholder="Shift handover notes, discrepancies, remarks…"></textarea>
+
+            <div class="formula-note">
+              Opening Sale = Closing Sale − Sale Movement &nbsp;|&nbsp; Opening Litres = Closing Litres − Litres Movement
+            </div>
+
+            <div class="action-row">
+              <button class="btn-main btn-primary" onclick="saveRecord()">Save Record</button>
+              <button class="btn-main btn-secondary" onclick="liveCalc()">Recalculate</button>
+              <button class="btn-main btn-ghost" onclick="resetForm()">Reset Form</button>
+            </div>
+          </div>
+
+          <!-- SUMMARY SIDEBAR -->
+          <div style="display:grid; gap:.85rem; position:sticky; top:1rem;">
+            <div class="result-strip" style="grid-template-columns:1fr;">
+              <div class="result-box highlight" id="openingSaleBox">
+                <div class="result-lbl">Opening Sale</div>
+                <div class="result-val teal" id="openingSaleVal">—</div>
+                <div class="result-sub">Closing Sale − Sale Movement</div>
+              </div>
+              <div class="result-box highlight" id="openingLitresBox">
+                <div class="result-lbl">Opening Litres</div>
+                <div class="result-val teal" id="openingLitresVal">—</div>
+                <div class="result-sub">Closing Litres − Litres Movement</div>
+              </div>
+              <div class="result-box" id="calcStatusBox">
+                <div class="result-lbl">Status</div>
+                <div class="result-val" id="calcStatusVal" style="font-size:1rem;">Ready</div>
+                <div class="result-sub" id="calcStatusSub">Fill the form to compute opening readings.</div>
+              </div>
+              <div class="result-box">
+                <div class="result-lbl">Submitted as</div>
+                <div class="result-val" id="calcRoleVal" style="font-size:1rem;">—</div>
+                <div class="result-sub" id="calcUserVal"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── LEDGER TAB ── -->
+      <div class="tab-pane" id="tab-ledger">
+        <div class="card">
+          <div class="flex-between" style="margin-bottom:1rem;">
+            <div>
+              <div class="card-title">Submitted Records</div>
+              <div class="card-sub" id="ledgerSub">All records saved in this session.</div>
+            </div>
+            <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;">
+              <input class="f-input" id="searchInput" type="search" placeholder="Search records…" style="width:200px;" oninput="renderLedger()" />
+              <button class="btn-main btn-ghost admin-only" onclick="exportData()" style="margin-top:0;">Export JSON</button>
+              <button class="btn-main btn-danger admin-only" onclick="clearAllRecords()" style="margin-top:0;">Clear All</button>
+            </div>
+          </div>
+          <div class="ledger-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Role</th>
+                  <th>Station</th>
+                  <th>Attendant</th>
+                  <th>Date</th>
+                  <th>Shift</th>
+                  <th>Closing Sale</th>
+                  <th>Sale Mvmt</th>
+                  <th>Opening Sale</th>
+                  <th>Closing Litres</th>
+                  <th>Litres Mvmt</th>
+                  <th>Opening Litres</th>
+                  <th>Notes</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="ledgerBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ADMIN PANEL TAB ── -->
+      <div class="tab-pane" id="tab-admin">
+        <div class="stat-row">
+          <div class="stat-tile">
+            <div class="stat-tile-lbl">Total Records</div>
+            <div class="stat-tile-val teal" id="statTotal">0</div>
+            <div class="stat-tile-sub">All submitted entries</div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-tile-lbl">Admin Records</div>
+            <div class="stat-tile-val blue" id="statAdmin">0</div>
+            <div class="stat-tile-sub">From administrator users</div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-tile-lbl">Client Records</div>
+            <div class="stat-tile-val amber" id="statClient">0</div>
+            <div class="stat-tile-sub">From client users</div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-tile-lbl">Total Sale Mvmt</div>
+            <div class="stat-tile-val teal" id="statSaleMvmt">0.00</div>
+            <div class="stat-tile-sub">Cumulative movement (₦)</div>
+          </div>
+        </div>
+
+        <div class="admin-panel-grid">
+          <div class="chart-card">
+            <div class="chart-card-title">Sale Movement per Record</div>
+            <div class="chart-wrap">
+              <canvas id="chartSale"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-title">Litres Movement per Record</div>
+            <div class="chart-wrap">
+              <canvas id="chartLitres"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-panel-grid">
+          <div class="chart-card">
+            <div class="chart-card-title">Closing Sale vs Opening Sale</div>
+            <div class="chart-wrap">
+              <canvas id="chartSaleCompare"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-title">Closing Litres vs Opening Litres</div>
+            <div class="chart-wrap">
+              <canvas id="chartLitresCompare"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="security-log mt-2">
+          <div class="security-log-header">
+            🔐 Security &amp; Activity Log
+            <button class="btn-sm btn-outline-white" onclick="clearSecurityLog()" style="font-size:.7rem;padding:.3rem .7rem;">Clear Log</button>
+          </div>
+          <div class="security-log-body" id="securityLogBody">
+            <div class="log-entry"><span class="log-time">—</span><span class="log-msg">No events recorded yet.</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- ── PERFORMANCE TAB ── -->
+      <div class="tab-pane" id="tab-performance">
+
+        <!-- CONTROLS ROW -->
+        <div class="perf-controls card" style="margin-bottom:1.25rem;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+            <div>
+              <div class="card-title" style="margin-bottom:.2rem;">Client Performance Analytics</div>
+              <div class="card-sub" style="margin-bottom:0;">Monthly averages, rankings, and trend intelligence per client.</div>
+            </div>
+            <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;">
+              <div>
+                <label class="f-label" style="margin-bottom:.3rem;">Metric</label>
+                <select class="f-input" id="perfMetric" onchange="renderPerformance()" style="width:160px;padding:.55rem .8rem;">
+                  <option value="saleMovement">Sale Movement (₦)</option>
+                  <option value="litresMovement">Litres Movement (L)</option>
+                  <option value="closingSale">Closing Sale (₦)</option>
+                  <option value="closingLitres">Closing Litres (L)</option>
+                </select>
+              </div>
+              <div>
+                <label class="f-label" style="margin-bottom:.3rem;">Year</label>
+                <select class="f-input" id="perfYear" onchange="renderPerformance()" style="width:110px;padding:.55rem .8rem;">
+                </select>
+              </div>
+              <div>
+                <label class="f-label" style="margin-bottom:.3rem;">Client Filter</label>
+                <select class="f-input" id="perfClientFilter" onchange="renderPerformance()" style="width:160px;padding:.55rem .8rem;">
+                  <option value="all">All Clients</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI STRIP -->
+        <div class="perf-kpi-row" id="perfKpiRow" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.85rem;margin-bottom:1.25rem;"></div>
+
+        <!-- MAIN CHARTS ROW -->
+        <div style="display:grid;grid-template-columns:1.4fr .6fr;gap:1.25rem;margin-bottom:1.25rem;">
+          <!-- Monthly trend line — all clients overlay -->
+          <div class="chart-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem;">
+              <div class="chart-card-title" style="margin-bottom:0;">Monthly Averages by Client</div>
+              <div style="display:flex;gap:.4rem;">
+                <button class="perf-view-btn active" data-view="line" onclick="setPerfView('line',this)">Line</button>
+                <button class="perf-view-btn" data-view="bar" onclick="setPerfView('bar',this)">Bar</button>
+              </div>
+            </div>
+            <div class="chart-wrap" style="height:300px;"><canvas id="chartPerfMonthly"></canvas></div>
+          </div>
+          <!-- Client share donut -->
+          <div class="chart-card">
+            <div class="chart-card-title">Client Volume Share</div>
+            <div class="chart-wrap" style="height:300px;"><canvas id="chartPerfDonut"></canvas></div>
+            <div id="donutLegend" style="margin-top:.85rem;display:flex;flex-direction:column;gap:.4rem;"></div>
+          </div>
+        </div>
+
+        <!-- CLIENT COMPARISON BAR + MONTHLY HEAT TABLE -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem;">
+          <div class="chart-card">
+            <div class="chart-card-title">Client Total vs Average — Side by Side</div>
+            <div class="chart-wrap" style="height:260px;"><canvas id="chartPerfClientBar"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-title">Month-on-Month Growth Rate (%)</div>
+            <div class="chart-wrap" style="height:260px;"><canvas id="chartPerfGrowth"></canvas></div>
+          </div>
+        </div>
+
+        <!-- PERFORMANCE LEADERBOARD TABLE -->
+        <div class="chart-card" style="margin-bottom:1.25rem;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem;">
+            <div class="chart-card-title" style="margin-bottom:0;">Client Performance Leaderboard</div>
+            <span style="font-family:var(--mono);font-size:.75rem;color:var(--ink-3);">Ranked by total selected metric · <span id="lbYearLabel"></span></span>
+          </div>
+          <div class="ledger-wrap" style="margin-top:0;">
+            <table style="min-width:700px;">
+              <thead>
+                <tr>
+                  <th style="width:48px;">#</th>
+                  <th>Client</th>
+                  <th>Records</th>
+                  <th>Total</th>
+                  <th>Monthly Avg</th>
+                  <th>Best Month</th>
+                  <th>Worst Month</th>
+                  <th>Trend</th>
+                  <th>vs. Overall Avg</th>
+                </tr>
+              </thead>
+              <tbody id="lbBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- MONTHLY BREAKDOWN HEAT MAP -->
+        <div class="chart-card">
+          <div class="chart-card-title">Monthly Breakdown — All Clients</div>
+          <div id="monthlyHeatTable" style="overflow:auto;"></div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════
+   CONFIGURATION & INITIAL STATE
+═══════════════════════════════════════ */
+const STORAGE_KEY   = "pumptill_records_v1";
+const LOG_KEY       = "pumptill_security_log_v1";
+const SESSION_MINS  = 20;
+const MAX_ATTEMPTS  = 5;
+const LOCKOUT_MINS  = 10;
+const ATTEMPT_KEY   = "pumptill_attempts_v1";
+
+// Hashed-like credential store (base64-encoded to simulate server-side hashing)
+// In production these would NEVER be stored client-side; this is for demo purposes.
+const USERS = {
+  admin:   { passHash: btoa("Admin@2024"),   role: "administrator", displayName: "Administrator" },
+  client1: { passHash: btoa("Client@2024"),  role: "client",        displayName: "Client Station 1" },
+  client2: { passHash: btoa("Client@2024"),  role: "client",        displayName: "Client Station 2" },
+};
+
+let records       = [];
+let securityLog   = [];
+let session       = null;
+let sessionTimer  = null;
+let countdownInt  = null;
+let chartSale, chartLitres, chartSaleCompare, chartLitresCompare;
+let editIndex     = null;
+let loginAttempts = {};
+
+/* ═══════════════════════════════════════
+   SECURITY — LOGIN / SESSION
+═══════════════════════════════════════ */
+let selectedAuthRole = "administrator";
+
+function selectRole(el) {
+  document.querySelectorAll(".role-opt").forEach(o => o.classList.remove("selected"));
+  el.classList.add("selected");
+  selectedAuthRole = el.dataset.role;
+}
+
+function getAttempts() {
+  try { return JSON.parse(localStorage.getItem(ATTEMPT_KEY)) || {}; }
+  catch { return {}; }
+}
+function saveAttempts(a) { localStorage.setItem(ATTEMPT_KEY, JSON.stringify(a)); }
+
+function handleLogin() {
+  const username = document.getElementById("authUsername").value.trim().toLowerCase();
+  const password = document.getElementById("authPassword").value;
+  const errEl    = document.getElementById("authError");
+  const lockEl   = document.getElementById("lockoutMsg");
+  errEl.style.display = "none";
+  lockEl.style.display = "none";
+
+  const attempts = getAttempts();
+  const now      = Date.now();
+
+  if (attempts[username]) {
+    if (attempts[username].count >= MAX_ATTEMPTS) {
+      const elapsed = (now - attempts[username].lastFail) / 60000;
+      if (elapsed < LOCKOUT_MINS) {
+        const rem = Math.ceil(LOCKOUT_MINS - elapsed);
+        lockEl.textContent = `Account locked. Try again in ${rem} minute(s).`;
+        lockEl.style.display = "block";
+        addSecurityLog(`Blocked login attempt for "${username}" — account locked.`, "fail");
+        return;
+      } else {
+        delete attempts[username];
+        saveAttempts(attempts);
+      }
+    }
+  }
+
+  const user = USERS[username];
+  if (!user || btoa(password) !== user.passHash || user.role !== selectedAuthRole) {
+    if (!attempts[username]) attempts[username] = { count: 0, lastFail: 0 };
+    attempts[username].count++;
+    attempts[username].lastFail = now;
+    saveAttempts(attempts);
+    const remaining = MAX_ATTEMPTS - attempts[username].count;
+    errEl.textContent = remaining > 0
+      ? `Invalid credentials. ${remaining} attempt(s) remaining before lockout.`
+      : "Account locked for 10 minutes due to repeated failures.";
+    errEl.style.display = "block";
+    addSecurityLog(`Failed login for "${username}" (${attempts[username].count}/${MAX_ATTEMPTS}).`, "fail");
+    return;
+  }
+
+  // Successful login
+  delete attempts[username];
+  saveAttempts(attempts);
+  session = { username, role: user.role, displayName: user.displayName, loginTime: now };
+  addSecurityLog(`Login successful — ${user.displayName} (${user.role}).`, "ok");
+  startSession();
+}
+
+function startSession() {
+  document.getElementById("authScreen").style.display = "none";
+  document.getElementById("appScreen").style.display  = "block";
+  document.getElementById("navRoleBadge").textContent  = session.displayName;
+  document.getElementById("sessionUser").textContent   = session.displayName;
+
+  // Calc role display
+  document.getElementById("calcRoleVal").textContent  = session.role === "administrator" ? "Administrator" : "Client";
+  document.getElementById("calcUserVal").textContent  = session.displayName;
+
+  // Tab visibility
+  document.querySelectorAll(".admin-only").forEach(el => {
+    el.style.display = session.role === "administrator" ? "" : "none";
+  });
+
+  loadData();
+  seedDemoRecords();
+  renderLedger();
+  if (session.role === "administrator") updateAdminPanel();
+  startSessionCountdown();
+  setDefaultDateTime();
+  showToast(`Welcome, ${session.displayName}.`, "ok");
+}
+
+function handleLogout() {
+  addSecurityLog(`Logout — ${session?.displayName}.`, "ok");
+  clearInterval(sessionTimer);
+  clearInterval(countdownInt);
+  session = null;
+  document.getElementById("appScreen").style.display  = "none";
+  document.getElementById("authScreen").style.display = "flex";
+  document.getElementById("authPassword").value       = "";
+  document.getElementById("authUsername").value       = "";
+  document.getElementById("authError").style.display  = "none";
+}
+
+function startSessionCountdown() {
+  let remaining = SESSION_MINS * 60;
+  const bar     = document.getElementById("sessionTimerBar");
+  const el      = document.getElementById("sessionCountdown");
+
+  clearInterval(countdownInt);
+  countdownInt = setInterval(() => {
+    remaining--;
+    const m = String(Math.floor(remaining / 60)).padStart(2, "0");
+    const s = String(remaining % 60).padStart(2, "0");
+    el.textContent = `${m}:${s}`;
+    if (remaining <= 120) bar.classList.add("expiring");
+    if (remaining <= 0) {
+      clearInterval(countdownInt);
+      addSecurityLog(`Session expired — ${session?.displayName}.`, "warn");
+      showToast("Session expired. Please sign in again.", "err");
+      setTimeout(handleLogout, 1600);
+    }
+  }, 1000);
+
+  // Reset timer on activity
+  document.addEventListener("mousemove", resetIdleTimer, { passive: true });
+  document.addEventListener("keydown",   resetIdleTimer, { passive: true });
+}
+
+let idleDebounce;
+function resetIdleTimer() {
+  clearTimeout(idleDebounce);
+  idleDebounce = setTimeout(() => {
+    clearInterval(countdownInt);
+    if (session) startSessionCountdown();
+  }, 500);
+}
+
+/* ═══════════════════════════════════════
+   DATA PERSISTENCE
+═══════════════════════════════════════ */
+function loadData() {
+  try { records = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { records = []; }
+  try { securityLog = JSON.parse(localStorage.getItem(LOG_KEY)) || []; }
+  catch { securityLog = []; }
+  renderSecurityLog();
+}
+
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+}
+function saveLogs() {
+  localStorage.setItem(LOG_KEY, JSON.stringify(securityLog));
+}
+
+/* ═══════════════════════════════════════
+   CALCULATOR LOGIC
+═══════════════════════════════════════ */
+function liveCalc() {
+  const cSale    = parseFloat(document.getElementById("closingSale").value)    || 0;
+  const sMvmt    = parseFloat(document.getElementById("saleMovement").value)   || 0;
+  const cLitres  = parseFloat(document.getElementById("closingLitres").value)  || 0;
+  const lMvmt    = parseFloat(document.getElementById("litresMovement").value) || 0;
+  const oSale    = cSale - sMvmt;
+  const oLitres  = cLitres - lMvmt;
+
+  const saleEl   = document.getElementById("openingSaleVal");
+  const litresEl = document.getElementById("openingLitresVal");
+  const statEl   = document.getElementById("calcStatusVal");
+  const subEl    = document.getElementById("calcStatusSub");
+  const sBox     = document.getElementById("openingSaleBox");
+  const lBox     = document.getElementById("openingLitresBox");
+  const stBox    = document.getElementById("calcStatusBox");
+
+  saleEl.textContent   = fmt(oSale);
+  litresEl.textContent = fmt(oLitres);
+
+  if (oSale < 0 || oLitres < 0) {
+    sBox.className   = "result-box danger";
+    lBox.className   = "result-box danger";
+    stBox.className  = "result-box danger";
+    saleEl.className = "result-val red";
+    litresEl.className = "result-val red";
+    statEl.textContent = "⚠ Invalid";
+    subEl.textContent  = "Opening values cannot be negative. Check movement figures.";
+    return null;
+  }
+
+  sBox.className   = "result-box highlight";
+  lBox.className   = "result-box highlight";
+  stBox.className  = "result-box";
+  saleEl.className = "result-val teal";
+  litresEl.className = "result-val teal";
+  statEl.textContent = "✓ Calculated";
+  subEl.textContent  = "Opening readings successfully derived.";
+
+  return { oSale, oLitres };
+}
+
+function saveRecord() {
+  const station   = document.getElementById("stationName").value.trim();
+  const attendant = document.getElementById("attendantName").value.trim();
+  const date      = document.getElementById("readingDate").value;
+  const shift     = document.getElementById("shift").value;
+  const notes     = document.getElementById("recordNotes").value.trim();
+  const cSale     = parseFloat(document.getElementById("closingSale").value);
+  const sMvmt     = parseFloat(document.getElementById("saleMovement").value);
+  const cLitres   = parseFloat(document.getElementById("closingLitres").value);
+  const lMvmt     = parseFloat(document.getElementById("litresMovement").value);
+
+  if (!station || !attendant || !date) {
+    showToast("Station name, attendant name, and date are required.", "err"); return;
+  }
+  if (isNaN(cSale) || isNaN(sMvmt) || isNaN(cLitres) || isNaN(lMvmt)) {
+    showToast("All reading and movement fields are required.", "err"); return;
+  }
+
+  const calc = liveCalc();
+  if (!calc) { showToast("Cannot save: negative opening values detected.", "err"); return; }
+
+  const record = {
+    id:            editIndex !== null ? records[editIndex]?.id : crypto.randomUUID(),
+    role:          session.role,
+    submittedBy:   session.username,
+    displayName:   session.displayName,
+    station,
+    attendant,
+    date,
+    shift,
+    closingSale:   cSale,
+    saleMovement:  sMvmt,
+    openingSale:   calc.oSale,
+    closingLitres: cLitres,
+    litresMovement:lMvmt,
+    openingLitres: calc.oLitres,
+    notes,
+    savedAt:       new Date().toISOString(),
+  };
+
+  if (editIndex !== null) {
+    records[editIndex] = record;
+    addSecurityLog(`Record updated — ${station} by ${session.displayName}.`, "warn");
+    showToast("Record updated successfully.", "ok");
+    editIndex = null;
+  } else {
+    records.unshift(record);
+    addSecurityLog(`Record saved — ${station} by ${session.displayName}.`, "ok");
+    showToast("Record saved successfully.", "ok");
+  }
+
+  saveData();
+  renderLedger();
+  if (session.role === "administrator") updateAdminPanel();
+  resetForm();
+}
+
+function resetForm() {
+  ["stationName","attendantName","closingSale","saleMovement","closingLitres","litresMovement","recordNotes"].forEach(id => {
+    document.getElementById(id).value = "";
+  });
+  document.getElementById("shift").value = "Morning";
+  setDefaultDateTime();
+  editIndex = null;
+  liveCalc();
+}
+
+function setDefaultDateTime() {
+  const now = new Date();
+  const offset = now.getTimezoneOffset();
+  document.getElementById("readingDate").value = new Date(now - offset * 60000).toISOString().slice(0,16);
+}
+
+/* ═══════════════════════════════════════
+   LEDGER RENDERING
+═══════════════════════════════════════ */
+function renderLedger() {
+  const body    = document.getElementById("ledgerBody");
+  const query   = (document.getElementById("searchInput")?.value || "").toLowerCase();
+  const isAdmin = session?.role === "administrator";
+
+  let filtered = records.filter(r =>
+    isAdmin ? true : r.submittedBy === session?.username
+  );
+
+  if (query) {
+    filtered = filtered.filter(r =>
+      [r.station, r.attendant, r.shift, r.notes, r.displayName, r.role].some(f =>
+        String(f || "").toLowerCase().includes(query)
+      )
+    );
+  }
+
+  const sub = document.getElementById("ledgerSub");
+  sub.textContent = `${filtered.length} record(s) shown.`;
+
+  if (!filtered.length) {
+    body.innerHTML = `<tr class="empty-row"><td colspan="13">No records found. Use the Calculator tab to add entries.</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = filtered.map((r, i) => {
+    const realIdx = records.indexOf(r);
+    const canEdit  = isAdmin || r.submittedBy === session?.username;
+    return `
+      <tr>
+        <td><span class="tag ${r.role === 'administrator' ? 'admin' : 'client'}">${r.role}</span></td>
+        <td>${esc(r.station)}</td>
+        <td>${esc(r.attendant)}</td>
+        <td class="mono-val" style="white-space:nowrap;">${fmtDate(r.date)}</td>
+        <td>${esc(r.shift)}</td>
+        <td class="mono-val">${fmt(r.closingSale)}</td>
+        <td class="mono-val">${fmt(r.saleMovement)}</td>
+        <td class="mono-val" style="font-weight:700;color:var(--teal);">${fmt(r.openingSale)}</td>
+        <td class="mono-val">${fmt(r.closingLitres)}</td>
+        <td class="mono-val">${fmt(r.litresMovement)}</td>
+        <td class="mono-val" style="font-weight:700;color:var(--teal);">${fmt(r.openingLitres)}</td>
+        <td style="max-width:160px;font-size:.8rem;color:var(--ink-3);">${esc(r.notes || "—")}</td>
+        <td style="white-space:nowrap;">
+          ${canEdit ? `<button class="tbl-btn tbl-edit" onclick="editRecord(${realIdx})">Edit</button>` : ""}
+          ${isAdmin ? `<button class="tbl-btn tbl-del" onclick="deleteRecord(${realIdx})">Delete</button>` : ""}
+        </td>
+      </tr>`;
+  }).join("");
+}
+
+function editRecord(idx) {
+  const r = records[idx];
+  if (!r) return;
+  document.getElementById("stationName").value    = r.station;
+  document.getElementById("attendantName").value  = r.attendant;
+  document.getElementById("readingDate").value    = r.date;
+  document.getElementById("shift").value          = r.shift;
+  document.getElementById("closingSale").value    = r.closingSale;
+  document.getElementById("saleMovement").value   = r.saleMovement;
+  document.getElementById("closingLitres").value  = r.closingLitres;
+  document.getElementById("litresMovement").value = r.litresMovement;
+  document.getElementById("recordNotes").value    = r.notes || "";
+  editIndex = idx;
+  liveCalc();
+  switchTab("calculator");
+  showToast("Record loaded for editing. Save to update.", "info");
+}
+
+function deleteRecord(idx) {
+  if (!confirm("Delete this record permanently?")) return;
+  const r = records[idx];
+  addSecurityLog(`Record deleted — ${r?.station} by ${session.displayName}.`, "warn");
+  records.splice(idx, 1);
+  saveData();
+  renderLedger();
+  if (session.role === "administrator") updateAdminPanel();
+  showToast("Record deleted.", "info");
+}
+
+function clearAllRecords() {
+  if (!confirm("Delete ALL records? This cannot be undone.")) return;
+  addSecurityLog(`All records cleared by ${session.displayName}.`, "fail");
+  records = [];
+  saveData();
+  renderLedger();
+  updateAdminPanel();
+  showToast("All records cleared.", "info");
+}
+
+/* ═══════════════════════════════════════
+   ADMIN PANEL & CHARTS
+═══════════════════════════════════════ */
+function updateAdminPanel() {
+  const total   = records.length;
+  const admRec  = records.filter(r => r.role === "administrator").length;
+  const cliRec  = records.filter(r => r.role === "client").length;
+  const totSale = records.reduce((a, r) => a + (r.saleMovement || 0), 0);
+
+  document.getElementById("statTotal").textContent    = total;
+  document.getElementById("statAdmin").textContent    = admRec;
+  document.getElementById("statClient").textContent   = cliRec;
+  document.getElementById("statSaleMvmt").textContent = fmt(totSale);
+
+  const labels = records.map((r, i) => `#${records.length - i} ${r.station || "Record"}`).reverse();
+  const revRecords = [...records].reverse();
+
+  buildBarChart("chartSale", labels, revRecords.map(r => r.saleMovement), "Sale Movement (₦)", "#077a6e");
+  buildBarChart("chartLitres", labels, revRecords.map(r => r.litresMovement), "Litres Movement (L)", "#c47b1e");
+  buildCompareChart("chartSaleCompare", labels,
+    revRecords.map(r => r.closingSale), revRecords.map(r => r.openingSale),
+    "Closing Sale", "Opening Sale", "#077a6e", "#c47b1e");
+  buildCompareChart("chartLitresCompare", labels,
+    revRecords.map(r => r.closingLitres), revRecords.map(r => r.openingLitres),
+    "Closing Litres", "Opening Litres", "#2457b3", "#c47b1e");
+}
+
+function buildBarChart(canvasId, labels, data, label, color) {
+  const ctx = document.getElementById(canvasId).getContext("2d");
+  if (window[canvasId + "_inst"]) window[canvasId + "_inst"].destroy();
+  window[canvasId + "_inst"] = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{ label, data, backgroundColor: color + "cc", borderRadius: 6, borderSkipped: false }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 10 }, maxRotation: 40 }, grid: { display: false } },
+        y: { ticks: { font: { size: 10 } }, grid: { color: "rgba(0,0,0,.06)" } }
+      }
+    }
+  });
+}
+
+function buildCompareChart(canvasId, labels, data1, data2, lbl1, lbl2, c1, c2) {
+  const ctx = document.getElementById(canvasId).getContext("2d");
+  if (window[canvasId + "_inst"]) window[canvasId + "_inst"].destroy();
+  window[canvasId + "_inst"] = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        { label: lbl1, data: data1, borderColor: c1, backgroundColor: c1 + "22", fill: true, tension: .35, pointRadius: 4 },
+        { label: lbl2, data: data2, borderColor: c2, backgroundColor: c2 + "22", fill: true, tension: .35, pointRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { font: { size: 11 } } } },
+      scales: {
+        x: { ticks: { font: { size: 10 }, maxRotation: 40 }, grid: { display: false } },
+        y: { ticks: { font: { size: 10 } }, grid: { color: "rgba(0,0,0,.06)" } }
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════════════════
+   SECURITY LOG
+═══════════════════════════════════════ */
+function addSecurityLog(msg, type = "ok") {
+  const entry = { msg, type, ts: new Date().toISOString() };
+  securityLog.unshift(entry);
+  if (securityLog.length > 200) securityLog = securityLog.slice(0, 200);
+  saveLogs();
+  renderSecurityLog();
+}
+
+function renderSecurityLog() {
+  const body = document.getElementById("securityLogBody");
+  if (!body) return;
+  if (!securityLog.length) {
+    body.innerHTML = `<div class="log-entry"><span class="log-time">—</span><span class="log-msg">No events recorded yet.</span></div>`;
+    return;
+  }
+  body.innerHTML = securityLog.map(e => `
+    <div class="log-entry">
+      <span class="log-time">${new Date(e.ts).toLocaleString()}</span>
+      <span class="log-msg">${esc(e.msg)}</span>
+      <span class="log-badge ${e.type}">${e.type.toUpperCase()}</span>
+    </div>`).join("");
+}
+
+function clearSecurityLog() {
+  if (!confirm("Clear all security log entries?")) return;
+  securityLog = [];
+  saveLogs();
+  renderSecurityLog();
+  showToast("Security log cleared.", "info");
+}
+
+/* ═══════════════════════════════════════
+   TABS
+═══════════════════════════════════════ */
+function switchTab(name) {
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+  document.querySelectorAll(".tab-pane").forEach(p => p.classList.toggle("active", p.id === "tab-" + name));
+  if (name === "admin" && session?.role === "administrator") updateAdminPanel();
+  if (name === "ledger") renderLedger();
+  if (name === "performance" && session?.role === "administrator") { populatePerfFilters(); renderPerformance(); }
+}
+
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+});
+
+/* ═══════════════════════════════════════
+   EXPORT
+═══════════════════════════════════════ */
+function exportData() {
+  const data = {
+    exportedAt: new Date().toISOString(),
+    exportedBy: session?.displayName,
+    records,
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement("a"), { href: url, download: "pumptill-records.json" });
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  addSecurityLog(`Data exported by ${session?.displayName}.`, "warn");
+  showToast("Records exported as JSON.", "ok");
+}
+
+/* ═══════════════════════════════════════
+   UTILITIES
+═══════════════════════════════════════ */
+function fmt(n) {
+  return Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function fmtDate(v) {
+  const d = new Date(v);
+  return isNaN(d) ? v : d.toLocaleString();
+}
+function esc(s) {
+  return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+let toastTimer;
+function showToast(msg, type = "ok") {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className   = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ""; }, 3200);
+}
+
+/* ═══════════════════════════════════════
+   PERFORMANCE ANALYTICS
+═══════════════════════════════════════ */
+
+const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+// Assign a stable colour per client username
+const CLIENT_PALETTE = [
+  "#077a6e","#c47b1e","#2457b3","#7c3aed","#be185d","#0369a1","#b45309","#16a34a",
+  "#dc2626","#0891b2","#d97706","#4338ca","#15803d","#b91c1c","#0f766e","#92400e"
+];
+const clientColorCache = {};
+function clientColor(name, idx) {
+  if (!clientColorCache[name]) {
+    const keys = Object.keys(clientColorCache).length;
+    clientColorCache[name] = CLIENT_PALETTE[keys % CLIENT_PALETTE.length];
+  }
+  return clientColorCache[name];
+}
+
+let perfChartMonthly, perfChartDonut, perfChartClientBar, perfChartGrowth;
+let perfViewType = "line";
+
+function setPerfView(type, btn) {
+  perfViewType = type;
+  document.querySelectorAll(".perf-view-btn").forEach(b => b.classList.toggle("active", b.dataset.view === type));
+  renderPerformance();
+}
+
+function populatePerfFilters() {
+  const yearSel = document.getElementById("perfYear");
+  const clientSel = document.getElementById("perfClientFilter");
+  if (!yearSel || !clientSel) return;
+
+  // Years from records
+  const years = [...new Set(records.map(r => {
+    const d = new Date(r.date);
+    return isNaN(d) ? null : d.getFullYear();
+  }).filter(Boolean))].sort((a,b) => b - a);
+
+  if (!years.length) years.push(new Date().getFullYear());
+  const currentYear = yearSel.value || String(years[0]);
+  yearSel.innerHTML = years.map(y => `<option value="${y}" ${y == currentYear ? "selected":""}>${y}</option>`).join("");
+
+  // Clients (only client-role users)
+  const clients = [...new Set(records.filter(r => r.role === "client").map(r => r.submittedBy))].sort();
+  const currentClient = clientSel.value || "all";
+  clientSel.innerHTML = `<option value="all">All Clients</option>` +
+    clients.map(c => {
+      const rec = records.find(r => r.submittedBy === c);
+      return `<option value="${c}" ${c === currentClient ? "selected":""}>${rec?.displayName || c}</option>`;
+    }).join("");
+}
+
+function getPerfData() {
+  const metric = document.getElementById("perfMetric")?.value || "saleMovement";
+  const year   = parseInt(document.getElementById("perfYear")?.value) || new Date().getFullYear();
+  const filter = document.getElementById("perfClientFilter")?.value || "all";
+
+  // Only client records
+  let recs = records.filter(r => r.role === "client");
+  if (filter !== "all") recs = recs.filter(r => r.submittedBy === filter);
+  recs = recs.filter(r => {
+    const d = new Date(r.date);
+    return !isNaN(d) && d.getFullYear() === year;
+  });
+
+  return { recs, metric, year, filter };
+}
+
+function buildMonthlyByClient(recs, metric) {
+  // Returns { clientName: [avg0..avg11] } (null if no data)
+  const byClient = {};
+  recs.forEach(r => {
+    const d = new Date(r.date);
+    const m = d.getMonth();
+    if (!byClient[r.submittedBy]) byClient[r.submittedBy] = Array.from({length:12}, () => []);
+    byClient[r.submittedBy][m].push(r[metric] || 0);
+  });
+  const result = {};
+  Object.entries(byClient).forEach(([client, months]) => {
+    const name = records.find(r => r.submittedBy === client)?.displayName || client;
+    result[client] = { name, monthly: months.map(arr => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null) };
+  });
+  return result;
+}
+
+function renderPerformance() {
+  populatePerfFilters();
+  const { recs, metric, year, filter } = getPerfData();
+  const byClient = buildMonthlyByClient(recs, metric);
+  const clientKeys = Object.keys(byClient);
+  const metricLabel = document.getElementById("perfMetric")?.options[document.getElementById("perfMetric").selectedIndex]?.text || metric;
+
+  document.getElementById("lbYearLabel").textContent = year;
+
+  // ── KPI STRIP ──
+  const totalVal   = recs.reduce((a, r) => a + (r[metric] || 0), 0);
+  const avgPerRec  = recs.length ? totalVal / recs.length : 0;
+  const uniqueClients = [...new Set(recs.map(r => r.submittedBy))].length;
+
+  // Best client
+  const clientTotals = {};
+  recs.forEach(r => { clientTotals[r.submittedBy] = (clientTotals[r.submittedBy] || 0) + (r[metric] || 0); });
+  const bestClientKey = Object.entries(clientTotals).sort((a,b) => b[1]-a[1])[0]?.[0];
+  const bestClientName = bestClientKey ? (records.find(r=>r.submittedBy===bestClientKey)?.displayName || bestClientKey) : "—";
+
+  // MoM growth (last two months with data, all clients combined)
+  const monthTotals = Array.from({length:12}, (_,i) => {
+    const m = recs.filter(r => new Date(r.date).getMonth() === i);
+    return m.length ? m.reduce((a,r)=>a+(r[metric]||0),0)/m.length : null;
+  });
+  const filledMonths = monthTotals.map((v,i)=>({v,i})).filter(x=>x.v!==null);
+  let momGrowth = null;
+  if (filledMonths.length >= 2) {
+    const last = filledMonths[filledMonths.length-1].v;
+    const prev = filledMonths[filledMonths.length-2].v;
+    momGrowth = prev ? ((last - prev) / prev) * 100 : null;
+  }
+
+  const kpiData = [
+    { lbl: "Total " + metricLabel.split(" ")[0], val: fmt(totalVal), sub: `${recs.length} record(s) in ${year}`, color: "teal", delta: null },
+    { lbl: "Avg per Record", val: fmt(avgPerRec), sub: "Across all submissions", color: "amber", delta: null },
+    { lbl: "Active Clients", val: uniqueClients, sub: "With entries this year", color: "blue", delta: null },
+    { lbl: "MoM Avg Growth", val: momGrowth !== null ? (momGrowth >= 0 ? "+" : "") + momGrowth.toFixed(1) + "%" : "N/A",
+      sub: "Last two active months", color: momGrowth === null ? "blue" : momGrowth >= 0 ? "teal" : "red",
+      delta: momGrowth },
+  ];
+
+  document.getElementById("perfKpiRow").innerHTML = kpiData.map(k => `
+    <div class="kpi-tile ${k.color}">
+      <div class="kpi-lbl">${k.lbl}</div>
+      <div class="kpi-val">${k.val}</div>
+      <div class="kpi-sub">${k.sub}</div>
+      ${k.delta !== null ? `<span class="kpi-delta ${k.delta>=0?"up":"down"}">${k.delta>=0?"▲":"▼"} ${Math.abs(k.delta).toFixed(1)}% MoM</span>` : ""}
+    </div>`).join("");
+
+  // ── MONTHLY LINE / BAR ──
+  const monthLabels = MONTH_NAMES;
+  const datasets = clientKeys.map((key, idx) => {
+    const { name, monthly } = byClient[key];
+    const color = clientColor(key, idx);
+    return {
+      label: name,
+      data: monthly,
+      borderColor: color,
+      backgroundColor: perfViewType === "bar" ? color + "cc" : color + "28",
+      fill: perfViewType === "line",
+      tension: .38,
+      pointRadius: 4,
+      pointHoverRadius: 7,
+      borderWidth: 2.5,
+      borderRadius: perfViewType === "bar" ? 5 : 0,
+      borderSkipped: false,
+      spanGaps: true,
+    };
+  });
+
+  // Overall average dataset
+  if (clientKeys.length > 1 && filter === "all") {
+    const avgData = MONTH_NAMES.map((_, m) => {
+      const vals = clientKeys.map(k => byClient[k].monthly[m]).filter(v => v !== null);
+      return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+    });
+    datasets.push({
+      label: "Overall Avg",
+      data: avgData,
+      borderColor: "#64748b",
+      backgroundColor: "transparent",
+      borderDash: [5,4],
+      borderWidth: 2,
+      pointRadius: 3,
+      fill: false,
+      tension: .38,
+      spanGaps: true,
+      order: -1,
+    });
+  }
+
+  const ctx1 = document.getElementById("chartPerfMonthly").getContext("2d");
+  if (perfChartMonthly) perfChartMonthly.destroy();
+  perfChartMonthly = new Chart(ctx1, {
+    type: perfViewType === "bar" ? "bar" : "line",
+    data: { labels: monthLabels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { labels: { font: { size: 11, family: "DM Sans" }, boxWidth: 12 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y !== null ? fmt(ctx.parsed.y) : "—"}`
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+        y: {
+          ticks: { font: { size: 10 }, callback: v => v >= 1000 ? (v/1000).toFixed(1)+"k" : v },
+          grid: { color: "rgba(0,0,0,.05)" },
+          title: { display: true, text: metricLabel, font: { size: 10 }, color: "#5c6270" }
+        }
+      }
+    }
+  });
+
+  // ── DONUT ──
+  const donutLabels = clientKeys.map(k => byClient[k].name);
+  const donutData   = clientKeys.map(k => clientTotals[k] || 0);
+  const donutColors = clientKeys.map((k,i) => clientColor(k,i));
+
+  const ctx2 = document.getElementById("chartPerfDonut").getContext("2d");
+  if (perfChartDonut) perfChartDonut.destroy();
+  perfChartDonut = new Chart(ctx2, {
+    type: "doughnut",
+    data: { labels: donutLabels, datasets: [{ data: donutData, backgroundColor: donutColors, borderWidth: 2, borderColor: "#fff", hoverOffset: 6 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: "64%",
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmt(ctx.parsed)} (${totalVal ? ((ctx.parsed/totalVal)*100).toFixed(1) : 0}%)` } }
+      }
+    }
+  });
+
+  // Custom legend
+  const total4Pct = donutData.reduce((a,b)=>a+b,0) || 1;
+  document.getElementById("donutLegend").innerHTML = donutLabels.map((lbl, i) => `
+    <div class="donut-legend-item">
+      <span class="donut-dot" style="background:${donutColors[i]}"></span>
+      <span style="flex:1;font-size:.78rem;">${lbl}</span>
+      <span style="font-family:var(--mono);font-size:.75rem;color:var(--ink-3);">${((donutData[i]/total4Pct)*100).toFixed(1)}%</span>
+    </div>`).join("") || `<div class="text-muted" style="font-size:.8rem;">No client data for this period.</div>`;
+
+  // ── CLIENT TOTAL vs AVG BAR ──
+  const cliTotArr = clientKeys.map(k => clientTotals[k] || 0);
+  const cliCounts = clientKeys.map(k => recs.filter(r=>r.submittedBy===k).length);
+  const cliAvgArr = clientKeys.map((k,i) => cliCounts[i] ? cliTotArr[i]/cliCounts[i] : 0);
+  const cliNames  = clientKeys.map(k => byClient[k].name);
+
+  const ctx3 = document.getElementById("chartPerfClientBar").getContext("2d");
+  if (perfChartClientBar) perfChartClientBar.destroy();
+  perfChartClientBar = new Chart(ctx3, {
+    type: "bar",
+    data: {
+      labels: cliNames,
+      datasets: [
+        { label: "Total", data: cliTotArr, backgroundColor: clientKeys.map((k,i)=>clientColor(k,i)+"cc"), borderRadius: 5, borderSkipped: false },
+        { label: "Avg/Record", data: cliAvgArr, backgroundColor: clientKeys.map((k,i)=>clientColor(k,i)+"55"), borderRadius: 5, borderSkipped: false, yAxisID: "y2" }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { font: { size: 10 } } } },
+      scales: {
+        x: { ticks: { font: { size: 10 }, maxRotation: 30 }, grid: { display: false } },
+        y:  { ticks: { font: { size: 10 }, callback: v => v>=1000?(v/1000).toFixed(1)+"k":v }, grid: { color:"rgba(0,0,0,.05)" }, title:{display:true,text:"Total",font:{size:9}} },
+        y2: { position:"right", ticks: { font:{size:10}, callback: v=>v>=1000?(v/1000).toFixed(1)+"k":v }, grid:{display:false}, title:{display:true,text:"Avg",font:{size:9}} }
+      }
+    }
+  });
+
+  // ── GROWTH RATE CHART ──
+  // For each client, compute MoM % change per month
+  const growthDatasets = clientKeys.map((key, idx) => {
+    const monthly = byClient[key].monthly;
+    const growth  = monthly.map((v, m) => {
+      if (m === 0 || v === null) return null;
+      const prev = monthly[m-1];
+      if (prev === null || prev === 0) return null;
+      return parseFloat(((v - prev) / prev * 100).toFixed(1));
+    });
+    return {
+      label: byClient[key].name,
+      data: growth,
+      borderColor: clientColor(key, idx),
+      backgroundColor: "transparent",
+      tension: .3,
+      pointRadius: 4,
+      borderWidth: 2,
+      spanGaps: true,
+    };
+  });
+
+  const ctx4 = document.getElementById("chartPerfGrowth").getContext("2d");
+  if (perfChartGrowth) perfChartGrowth.destroy();
+  perfChartGrowth = new Chart(ctx4, {
+    type: "line",
+    data: { labels: monthLabels, datasets: growthDatasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: { legend: { labels: { font: { size: 10 } } } },
+      scales: {
+        x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+        y: {
+          ticks: { font: { size: 10 }, callback: v => v + "%" },
+          grid: { color: "rgba(0,0,0,.05)" },
+          title: { display: true, text: "MoM Growth %", font: { size: 10 }, color: "#5c6270" }
+        }
+      }
+    }
+  });
+
+  // ── LEADERBOARD TABLE ──
+  const lbRows = clientKeys.map((key, idx) => {
+    const { name, monthly } = byClient[key];
+    const total   = clientTotals[key] || 0;
+    const count   = recs.filter(r => r.submittedBy === key).length;
+    const avg     = count ? total / count : 0;
+    const filledM = monthly.map((v,i)=>({v,i})).filter(x=>x.v!==null);
+    const best    = filledM.length ? filledM.reduce((a,b)=>b.v>a.v?b:a) : null;
+    const worst   = filledM.length ? filledM.reduce((a,b)=>b.v<a.v?b:a) : null;
+
+    // Trend: compare first half vs second half average
+    const firstHalf  = filledM.filter(x => x.i < 6).map(x=>x.v);
+    const secondHalf = filledM.filter(x => x.i >= 6).map(x=>x.v);
+    const fhAvg = firstHalf.length  ? firstHalf.reduce((a,b)=>a+b,0)/firstHalf.length   : null;
+    const shAvg = secondHalf.length ? secondHalf.reduce((a,b)=>a+b,0)/secondHalf.length  : null;
+    let trend = "—", trendClass = "";
+    if (fhAvg !== null && shAvg !== null) {
+      const diff = ((shAvg - fhAvg) / (fhAvg||1)) * 100;
+      trend = (diff >= 0 ? "▲ " : "▼ ") + Math.abs(diff).toFixed(1) + "%";
+      trendClass = diff >= 0 ? "color:var(--teal);" : "color:var(--red);";
+    }
+
+    // vs overall avg
+    const overallAvg = recs.length ? recs.reduce((a,r)=>a+(r[metric]||0),0)/recs.length : 0;
+    const vsAvg = overallAvg ? ((avg - overallAvg) / overallAvg) * 100 : 0;
+    const vsAvgStr = (vsAvg >= 0 ? "+" : "") + vsAvg.toFixed(1) + "%";
+    const vsAvgColor = vsAvg >= 0 ? "var(--teal)" : "var(--red)";
+
+    return { key, name, count, total, avg, best, worst, trend, trendClass, vsAvgStr, vsAvgColor };
+  }).sort((a, b) => b.total - a.total);
+
+  document.getElementById("lbBody").innerHTML = lbRows.length ? lbRows.map((row, i) => {
+    const rankClass = i === 0 ? "rank-1" : i === 1 ? "rank-2" : i === 2 ? "rank-3" : "rank-n";
+    return `<tr>
+      <td><span class="rank-badge ${rankClass}">${i+1}</span></td>
+      <td style="font-weight:700;">${esc(row.name)}</td>
+      <td class="mono-val">${row.count}</td>
+      <td class="mono-val" style="font-weight:700;">${fmt(row.total)}</td>
+      <td class="mono-val">${fmt(row.avg)}</td>
+      <td class="mono-val">${row.best ? MONTH_NAMES[row.best.i] + " · " + fmt(row.best.v) : "—"}</td>
+      <td class="mono-val">${row.worst ? MONTH_NAMES[row.worst.i] + " · " + fmt(row.worst.v) : "—"}</td>
+      <td class="trend-spark" style="${row.trendClass}">${row.trend}</td>
+      <td class="mono-val" style="font-weight:700;color:${row.vsAvgColor};">${row.vsAvgStr}</td>
+    </tr>`;
+  }).join("") : `<tr class="empty-row"><td colspan="9">No client records for this period. Add entries via the Calculator.</td></tr>`;
+
+  // ── HEAT TABLE ──
+  const heatClients = clientKeys.map(k => ({ key: k, name: byClient[k].name, monthly: byClient[k].monthly }));
+  if (!heatClients.length) {
+    document.getElementById("monthlyHeatTable").innerHTML = `<p class="text-muted" style="padding:1rem;">No data available for the selected filters.</p>`;
+    return;
+  }
+
+  // Find max for heat colouring
+  const allVals = heatClients.flatMap(c => c.monthly.filter(v => v !== null));
+  const maxVal  = Math.max(...allVals, 1);
+
+  const heatHTML = `
+    <table class="heat-table">
+      <thead>
+        <tr>
+          <th>Client</th>
+          ${MONTH_NAMES.map(m=>`<th>${m}</th>`).join("")}
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${heatClients.map(c => {
+          const rowTotal = c.monthly.filter(v=>v!==null).reduce((a,b)=>a+b,0);
+          return `<tr>
+            <td>${esc(c.name)}</td>
+            ${c.monthly.map(v => {
+              if (v === null) return `<td><span class="heat-cell" style="color:var(--ink-3);">—</span></td>`;
+              const intensity = Math.min(v / maxVal, 1);
+              const bg = `rgba(7,122,110,${(intensity * 0.6 + 0.07).toFixed(2)})`;
+              const fg = intensity > 0.55 ? "#fff" : "#0e1117";
+              return `<td><span class="heat-cell" style="background:${bg};color:${fg};">${v >= 1000 ? (v/1000).toFixed(1)+"k" : v.toFixed(0)}</span></td>`;
+            }).join("")}
+            <td><strong style="font-family:var(--mono);">${fmt(rowTotal)}</strong></td>
+          </tr>`;
+        }).join("")}
+        <tr style="border-top:2px solid var(--rule);background:var(--card-alt);">
+          <td style="font-weight:700;">Monthly Avg</td>
+          ${MONTH_NAMES.map((_, m) => {
+            const vals = heatClients.map(c => c.monthly[m]).filter(v => v !== null);
+            if (!vals.length) return `<td><span class="heat-cell" style="color:var(--ink-3);">—</span></td>`;
+            const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
+            return `<td><span class="heat-cell" style="background:var(--blue-lt);color:var(--blue);font-weight:700;">${avg>=1000?(avg/1000).toFixed(1)+"k":avg.toFixed(0)}</span></td>`;
+          }).join("")}
+          <td></td>
+        </tr>
+      </tbody>
+    </table>`;
+  document.getElementById("monthlyHeatTable").innerHTML = heatHTML;
+}
+
+// Seed demo records so the performance tab is populated immediately
+function seedDemoRecords() {
+  if (records.length > 0) return; // don't overwrite real data
+
+  const demoClients = [
+    { username: "client1", displayName: "Client Station 1" },
+    { username: "client2", displayName: "Client Station 2" },
+  ];
+  const shifts = ["Morning","Afternoon","Evening","Night"];
+  const year = new Date().getFullYear();
+
+  demoClients.forEach(client => {
+    for (let month = 0; month < 7; month++) {
+      const closingSale   = 10000 + Math.random() * 8000;
+      const saleMovement  = 300   + Math.random() * 900;
+      const closingLitres = 7000  + Math.random() * 4000;
+      const litresMovement= 200   + Math.random() * 600;
+      records.push({
+        id: crypto.randomUUID(),
+        role: "client",
+        submittedBy: client.username,
+        displayName: client.displayName,
+        station: client.displayName,
+        attendant: client.displayName,
+        date: `${year}-${String(month+1).padStart(2,"0")}-${String(5 + Math.floor(Math.random()*10)).padStart(2,"0")}T08:00`,
+        shift: shifts[Math.floor(Math.random()*shifts.length)],
+        closingSale: parseFloat(closingSale.toFixed(2)),
+        saleMovement: parseFloat(saleMovement.toFixed(2)),
+        openingSale: parseFloat((closingSale - saleMovement).toFixed(2)),
+        closingLitres: parseFloat(closingLitres.toFixed(2)),
+        litresMovement: parseFloat(litresMovement.toFixed(2)),
+        openingLitres: parseFloat((closingLitres - litresMovement).toFixed(2)),
+        notes: "Auto-seeded demo record.",
+        savedAt: new Date(year, month, 15).toISOString(),
+      });
+    }
+  });
+  saveData();
+}
+
+
+document.getElementById("authPassword").addEventListener("keydown", e => {
+  if (e.key === "Enter") handleLogin();
+});
+</script>
+</body>
+</html>
